@@ -5,6 +5,7 @@ from os.path import expanduser
 from dotenv import load_dotenv
 
 from utils import HardwareInfoProvider
+from helpers.custom_formatter import CustomFormatter
 
 load_dotenv('.env' if os.path.exists('.env') else '.env.config')  # take environment variables from .env.
 
@@ -35,10 +36,12 @@ dp_request_timeout = 60 * 60 * 24
 # logger
 logger = logging.getLogger("ETNY NODE")
 handler = logging.handlers.RotatingFileHandler('/var/log/etny-node.log', maxBytes=2048000, backupCount=5)
-formatter = logging.Formatter('%(asctime)s %(message)s')
+fmt = '%(asctime)s %(message)s'
+formatter = logging.Formatter(fmt)
 handler.setFormatter(formatter)
+handler.setFormatter(CustomFormatter(fmt))
 logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # parser
 parser = argparse.ArgumentParser(description="Ethernity PoX request")

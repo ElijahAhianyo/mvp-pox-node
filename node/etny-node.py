@@ -129,12 +129,13 @@ class EtnyPoXNode:
         logger.info(f"Downloading IPFS content... {method_name}")
         metadata = self.__etny.caller()._getDORequestMetadata(order.do_req)
         template = metadata[1].split(':')
-        self.storage.download_many([template[0]], from_bootstrap=True)
+        self.storage.download_many([template[0]])
         if not self.storage.download_many([template[0], metadata[2], metadata[3]]):
             logger.info("Cannot download data from IPFS, cancelling processing")
             self.ipfs_timeout_cancel(order_id)
             return
 
+        '''
         logger.info("Stopping previous docker registry")
         
         run_subprocess(['docker', 'stop', 'registry'], logger)
@@ -156,11 +157,11 @@ class EtnyPoXNode:
              'etny-pynithy-' + str(order_id), 'etny-pynithy', str(order_id), metadata[2], metadata[3],
              self.__resultaddress, self.__resultprivatekey, config.contract_address
         ], logger)
-        
+        '''
 
 
         '''new version'''
-        '''
+        
         logger.info("Running new docker registry - 4 ")
         subprocess.call('docker rm -f $(sudo docker ps -aq)', shell=True)
         run_subprocess(['docker', 'build', '-t', 'docker_etny-pynithy1', '-f', 'docker/etny-pynithy.Dockerfile', './docker'], logger)
@@ -171,7 +172,7 @@ class EtnyPoXNode:
              'etny-pynithy-' + str(order_id), 'etny-pynithy', str(order_id), metadata[2], metadata[3],
              self.__resultaddress, self.__resultprivatekey, config.contract_address
         ], logger)
-        '''
+        
         '''new version'''
 
 
