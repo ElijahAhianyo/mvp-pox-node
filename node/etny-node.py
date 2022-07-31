@@ -10,8 +10,10 @@ from web3.middleware import geth_poa_middleware
 import config
 from utils import get_or_generate_uuid, run_subprocess, retry, Storage, Cache, subprocess
 from models import *
+from helpers.terminated_task import TerminatedTask
 
 logger = config.logger
+
 
 
 class EtnyPoXNode:
@@ -88,7 +90,7 @@ class EtnyPoXNode:
             processed_logs = self.__etny.events._addDPRequestEV().processReceipt(receipt)
             self.__dprequest = processed_logs[0].args._rowNumber
         except Exception as ex:
-            logger.info('before error---')
+            logger.debug('before error---')
             logger.error(ex)
             raise
 
@@ -121,7 +123,7 @@ class EtnyPoXNode:
             self.__w3.eth.waitForTransactionReceipt(hash)
         except:
             raise
-        logger.info("Request has been cancelled")
+        logger.warning("Request has been cancelled")
 
     def process_order(self, order_id, method_name = ''):
         order = Order(self.__etny.caller()._getOrder(order_id))
@@ -135,7 +137,7 @@ class EtnyPoXNode:
             self.ipfs_timeout_cancel(order_id)
             return
 
-        '''
+        
         logger.info("Stopping previous docker registry")
         
         run_subprocess(['docker', 'stop', 'registry'], logger)
@@ -157,11 +159,10 @@ class EtnyPoXNode:
              'etny-pynithy-' + str(order_id), 'etny-pynithy', str(order_id), metadata[2], metadata[3],
              self.__resultaddress, self.__resultprivatekey, config.contract_address
         ], logger)
-        '''
-
+        
 
         '''new version'''
-        
+        '''
         logger.info("Running new docker registry - 4 ")
         subprocess.call('docker rm -f $(sudo docker ps -aq)', shell=True)
         run_subprocess(['docker', 'build', '-t', 'docker_etny-pynithy1', '-f', 'docker/etny-pynithy.Dockerfile', './docker'], logger)
@@ -172,7 +173,7 @@ class EtnyPoXNode:
              'etny-pynithy-' + str(order_id), 'etny-pynithy', str(order_id), metadata[2], metadata[3],
              self.__resultaddress, self.__resultprivatekey, config.contract_address
         ], logger)
-        
+        '''
         '''new version'''
 
 
@@ -195,9 +196,9 @@ class EtnyPoXNode:
             return
 
         logger.info(f"Processing NEW DP request {self.__dprequest}")
-        resp, req = retry(self.__etny.caller()._getDPRequest, self.__dprequest, attempts=10, delay=3, callback = lambda x: logger.info(f"there we are 0.......{x}"))
+        resp, req = retry(self.__etny.caller()._getDPRequest, self.__dprequest, attempts=10, delay=3, callback = lambda x: logger.info(f"processing 0.......{x}"))
         if resp is False:
-            logger.info(f"DP {self.__dprequest} wasn't found")
+            logger.warning(f"DP {self.__dprequest} wasn't found")
             return
         req = DPRequest(req)
         checked = 0
@@ -226,26 +227,44 @@ class EtnyPoXNode:
                 try:
                     self.place_order(i)
                 except (exceptions.SolidityError, IndexError) as error:
-                    logger.info("Order already created, skipping to next DO request")
+                    logger.warning("Order already created, skipping to next DO request")
                     continue
                 found = True
                 logger.info(f"Waiting for order {self.__order} approval...")
-                if retry(self.wait_for_order_approval, attempts=20, delay=2, callback = lambda x: logger.info(f"there we are.......{x}"))[0] is False:
-                    logger.info("Order was not approved in the last ~10 blocks, skipping to next request")
+                if retry(self.wait_for_order_approval, attempts=20, delay=2, callback = lambda x: logger.info(f"searching...{x}"))[0] is False:
+                    logger.warning("Order was not approved in the last ~10 blocks, skipping to next request")
                     break
                 self.process_order(self.__order, method_name = 'process_dp_request-2')
                 logger.info(f"Order {self.__order}, with DO request {i} and DP request {self.__dprequest} processed successfully")
                 break
             if found:
                 logger.info(f"Finished processing order {self.__order}")
+                self._check_for_docker_errors()
                 return
             checked = count - 1
             time.sleep(5)
             seconds += 5
 
-        logger.info("DP request timed out!")
+        logger.warning("DP request timed out!")
         self.cancel_dp_request(self.__dprequest)
 
+
+    def _check_for_docker_errors(self):
+        try:
+            container_name = f'etny-pynithy-{self.__order}'
+            cmd = f'''docker logs {container_name} 2>&1 | grep -i "error"'''
+            print(cmd)
+            t = TerminatedTask(cmd = cmd, time_limit = 10)
+            result = t.run()
+            if result and result.get('stdout'):
+                logger.debug("Errors: comming from the docker container:")
+                [logger.debug('*' * 10) for x in range(3)]
+                for log in result.get('stdout').splitlines():
+                    logger.error(log)
+                [logger.debug('3' * 10) for x in range(3)]
+        except Exception as e:
+            logger.error(str(e))
+          
     def add_processor_to_order(self, order_id):
         unicorn_txn = self.__etny.functions._addProcessorToOrder(order_id, self.__resultaddress).buildTransaction(self.get_transaction_build())
 
@@ -276,26 +295,15 @@ class EtnyPoXNode:
             return order_id
         my_orders = self.__etny.functions._getMyDOOrders().call({'from': self.__address})
         cached_order_ids = self.orders_cache.get_values()
-        logger.info('getting object here')
-        logger.info(json.dumps(my_orders))
-        logger.info(cached_order_ids)
-        logger.info(json.dumps(list(reversed(list(set(my_orders) - set(cached_order_ids))))))
-        logger.info('getting object here----')
         for _order_id in reversed(list(set(my_orders) - set(cached_order_ids))):
             _order = self.__etny.caller()._getOrder(_order_id)
             order = Order(_order)
             self.orders_cache.add(order.dp_req, _order_id)
-
-
-            logger.info(f'self.__dprequest = {self.__dprequest}')
-            logger.info(f'order_id = {_order_id}')
-            logger.info(f'order.dp_req = {order.dp_req}')
-            logger.info(_order)
             
             logger.info(f"Checking order {_order_id} - {order.dp_req}")
             if order.dp_req == self.__dprequest:
                 return _order_id
-        logger.info(f"Could't find order with DP request {self.__dprequest} - {order_id}")
+        logger.warning(f"Could't find order with DP request {self.__dprequest} - {order_id}")
         return None
 
     def place_order(self, doreq):
