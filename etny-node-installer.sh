@@ -9,10 +9,10 @@ HEIGHT=15
 WIDTH=40
 CHOICE_HEIGHT=4
 BACKTITLE="ETNY Node Installer"
-TITLE="ETNY Node Installer"
 MENU="Choose one of the following options:"
 
 menu(){
+	TITLE="ETNY Node Installer"
 	OPTIONS=(1 "Install node"
 	         2 "Change wallet"
 	         3 "Change node options")
@@ -40,6 +40,7 @@ menu(){
 }
 
 node_options(){
+	TITLE="ETNY Node Options"
 	OPTIONS=(1 "Disable IPV6 in Vagrant VM"
 	         2 "Option2"
 	         3 "Option3")
@@ -118,7 +119,12 @@ then
 		while [ $sec -ge 0 ]; do echo -n "Restarting system in [CTRL+C to cancel]: " && echo -ne "$sec\033[0K\r" && let "sec=sec-1" && sleep 1; done
 		sudo reboot
 	else
-		echo "Node installation completed successfully. Please allow up to 24h to see transactions on the blockchain. " && exit
+		if [ $? -eq 0 ]
+		then
+			echo "Node installation completed successfully. Please allow up to 24h to see transactions on the blockchain. " && exit
+		else
+			echo "Something went wrong. Run the installer again: ./etny-node-installer.sh"
+		fi
 	fi
 else 
 	ubuntu_20_04_update_ansible
@@ -227,7 +233,12 @@ then
 	while [ $sec -ge 0 ]; do echo -n "Restarting system in [CTRL+C to cancel]: " && echo -ne "$sec\033[0K\r" && let "sec=sec-1" && sleep 1; done
 	sudo reboot
 else
-	echo "Node installation completed successfully. Please allow up to 24h to see transactions on the blockchain. " && exit
+	if [ $? -eq 0 ]
+	then
+		echo "Node installation completed successfully. Please allow up to 24h to see transactions on the blockchain. " && exit
+	else
+		echo "Something went wrong. Run the installer again: ./etny-node-installer.sh"
+	fi
 fi
 }
 
