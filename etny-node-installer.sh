@@ -5,6 +5,71 @@ configfile="config"
 rebootfile="/tmp/reboot"
 service="etny-vagrant.service"
 os=""
+HEIGHT=15
+WIDTH=40
+CHOICE_HEIGHT=4
+BACKTITLE="ETNY Node Installer"
+TITLE="ETNY Node Installer"
+MENU="Choose one of the following options:"
+
+menu(){
+	OPTIONS=(1 "Install node"
+	         2 "Change wallet"
+	         3 "Change node options")
+
+	CHOICE=$(dialog --clear \
+	                --backtitle "$BACKTITLE" \
+	                --title "$TITLE" \
+	                --menu "$MENU" \
+	                $HEIGHT $WIDTH $CHOICE_HEIGHT \
+	                "${OPTIONS[@]}" \
+	                2>&1 >/dev/tty)
+
+	clear
+	case $CHOICE in
+	        1)
+	            start
+	            ;;
+	        2)
+	            ubuntu_20_04_config_file_choice
+	            ;;
+	        3)
+	            node_options
+	            ;;
+	esac
+}
+
+node_options(){
+	OPTIONS=(1 "Disable IPV6 in Vagrant VM"
+	         2 "Option2"
+	         3 "Option3")
+
+	CHOICE=$(dialog --clear \
+	                --backtitle "$BACKTITLE" \
+	                --title "$TITLE" \
+	                --menu "$MENU" \
+	                $HEIGHT $WIDTH $CHOICE_HEIGHT \
+	                "${OPTIONS[@]}" \
+	                2>&1 >/dev/tty)
+
+	clear
+	case $CHOICE in
+	        1)
+				export IPV6=disable
+				ubuntu_20_04_config_file_choice
+	            ;;
+	        2)
+	            echo "Second option"
+	            ;;
+	        3)
+	            echo "Third option"
+	            ;;
+	esac
+}
+
+restart_service(){
+	systemctl restart $service 2>/dev/null
+}
 
 ubuntu_20_04(){
 #determining if the etny-vagrant service is running. If yes we stop the script as we don't need to run the setup process
@@ -35,7 +100,7 @@ then
 	## check ansible 
 	echo "Check ansible version..." 
 	ANSIBLE_VERSION=`ansible --version 2> /dev/null || echo ""`
-	if [[ $ANSIBLE_VERSION = "" ]]; then echo "Installing latest ansible version..." && sudo apt-add-repository --yes --update ppa:ansible/ansible && sudo apt update && sudo apt -y install software-properties-common ansible; fi
+	if [[ $ANSIBLE_VERSION == "" ]]; then echo "Installing latest ansible version..." && sudo apt-add-repository --yes --update ppa:ansible/ansible > /dev/null 2>&1 && sudo apt update > /dev/null 2>&1 && sudo apt -y install software-properties-common ansible > /dev/null 2>&1; fi
 	if [ -f $configfile ]
 	then
 		echo "Config file found. "
@@ -62,12 +127,19 @@ fi
 
 ubuntu_20_04_config_file_choice(){
 #if the config file doesn't exist we offer the either generate one with random wallets or we get the wallets from input
-echo "1) Type wallets. "
-echo "2) Generate random wallets... "
-echo "3) Use existing config file... "
-echo "4) Exit. Rerun the script when config file exists..."
-echo -n "[Type your choice to continue]:" && read choice
-case "$choice" in 
+	OPTIONS=(1 "Type wallets"
+	         2 "Generate random wallets"
+	         3 "Use existing config file")
+
+	CHOICE=$(dialog --clear \
+	        --backtitle "$BACKTITLE" \
+	        --title "$TITLE" \
+	        --menu "$MENU" \
+	        $HEIGHT $WIDTH $CHOICE_HEIGHT \
+	        "${OPTIONS[@]}" \
+	        2>&1 >/dev/tty)
+	clear
+case $CHOICE in 
 	1) 
 		echo "Type/Paste wallet details below..."
 		nodeaddr=("Node Address: " "Node Private Key: " "Result Address: " "Result Private Key: ")
@@ -122,7 +194,14 @@ case "$choice" in
 		echo "PRIVATE_KEY="$nodeprivatekey >> $nodefolder/$configfile
 		echo "RESULT_ADDRESS="$resultaddress >> $nodefolder/$configfile
 		echo "RESULT_PRIVATE_KEY="$resultprivatekey >> $nodefolder/$configfile
-		if [ -f $nodefolder/$configfile ]; then echo "Config file generated successfully. Continuing..." && ubuntu_20_04_kernel_check; else echo "Something went wrong. Seek Help!" && exit; fi
+		if [ -f $nodefolder/$configfile ] 
+		then 
+			echo "Config file generated successfully. Restarting the service..." 
+			sudo vagrant upload $configfile
+			systemctl restart $service 2>/dev/null
+		else 
+			echo "Something went wrong. Seek Help!" && exit
+		fi
 	;;
 	2) 
 		export FILE=generate
@@ -196,4 +275,5 @@ case $(awk '/^ID=/' /etc/*-release 2>/dev/null | awk -F'=' '{ print tolower($2) 
 	*) echo "Could not determine Distro. Exiting..."
 esac
 }
-start
+sudo apt install -y dialog > /dev/null 2>&1
+menu
