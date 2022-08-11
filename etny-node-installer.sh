@@ -121,9 +121,9 @@ then
 	else
 		if [ $? -eq 0 ]
 		then
-			echo "Node installation completed successfully. Please allow up to 24h to see transactions on the blockchain. " && exit
-		else
 			echo "Something went wrong. Run the installer again: ./etny-node-installer.sh"
+		else
+			echo "Node installation completed successfully. Please allow up to 24h to see transactions on the blockchain. " && exit
 		fi
 	fi
 else 
@@ -235,9 +235,9 @@ then
 else
 	if [ $? -eq 0 ]
 	then
-		echo "Node installation completed successfully. Please allow up to 24h to see transactions on the blockchain. " && exit
-	else
 		echo "Something went wrong. Run the installer again: ./etny-node-installer.sh"
+	else
+		echo "Node installation completed successfully. Please allow up to 24h to see transactions on the blockchain. " && exit
 	fi
 fi
 }
