@@ -10,6 +10,7 @@ from web3.middleware import geth_poa_middleware
 import config
 from utils import get_or_generate_uuid, run_subprocess, retry, Storage, Cache, subprocess
 from models import *
+from src.node_benchmark.main import Task
 
 logger = config.logger
 
@@ -46,6 +47,12 @@ class EtnyPoXNode:
         self.doreq_cache = Cache(config.doreq_cache_limit, config.doreq_filepath)
         self.ipfs_cache = Cache(config.ipfs_cache_limit, config.ipfs_cache_filepath)
         self.storage = Storage(config.ipfs_host, config.client_connect_url, config.client_bootstrap_url, self.ipfs_cache, config.logger)
+
+
+        ##### performance info
+        self.send_perforance_log_to_the_ipfs()
+        ##### performance info
+        
 
     def parse_arguments(self, arguments, parser):
         parser = parser.parse_args()
@@ -323,6 +330,17 @@ class EtnyPoXNode:
         self.__w3.eth.sendRawTransaction(signed_txn.rawTransaction)
         _hash = self.__w3.toHex(self.__w3.sha3(signed_txn.rawTransaction))
         return _hash
+
+
+    def send_perforance_log_to_the_ipfs(self):
+        ###
+        try:
+            task = Task()
+            logger.info(self.storage.upload_ipfs(os.path.join(os.getcwd(), 'node-benchmark-result.json')))
+            logger.info('--------*')
+        except Exception as e:
+            logger.error('upload error: ', type(e), e)
+        ###
 
     def resume_processing(self):
         while True:

@@ -8,7 +8,7 @@ from collections import OrderedDict
 
 import ipfshttpclient
 import psutil
-
+from typing import Union
 
 def get_or_generate_uuid(filename):
     if os.path.exists(filename):
